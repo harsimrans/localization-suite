@@ -1,2 +1,6 @@
 *.csv
 .DS_Store
+*jpg
+*png
+*pdf
+*txt
