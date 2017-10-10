@@ -107,7 +107,7 @@ def experiment(loc, rss, txid=None):
             output = get_estimated_rss(loc_anchor_x, loc_anchor_y, rss_anchor, loc_pred_x, loc_pred_y, smooth_val)
             MAEs.append(MAE(output, rss_pred))
             MSEs.append(MSE(output, rss_pred))
-        print "\t", "MSE: ", min(MSEs), "MAE: ", min(MAEs), " Num anchor nodes: ", len(loc_anchor_x)
+        print "\t MSE: {0:10.4f}    MAE: {1:10.4f}    Num anchor nodes: {2:3d}".format(min(MSEs), min(MAEs), len(loc_anchor_x))
 
 
 def main():
