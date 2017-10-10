@@ -16,6 +16,7 @@ def get_estimated_rss(xr, yr, rssr, xe, ye, sv=0):
 
         returns: the estimated value of the RSS
     '''
+
     model = Rbf(xr, yr, rssr, smooth=sv)
     out = model(xe, ye)
     return out
@@ -27,8 +28,8 @@ def MSE(x, y):
         
         returns: MSE of the two list x, y
     """
+
     assert(len(x) == len(y)), "The list sizes should be equal"
-    
     # if the lists doesn't contain value, the error is zero
     if len(x) == 0:
         return 0.0
@@ -46,8 +47,8 @@ def MAE(x, y):
         
         returns: Mean absolute of the two lists
     """
-    assert(len(x) == len(y)), "The list sizes should be equal"
 
+    assert(len(x) == len(y)), "The list sizes should be equal"
     # if the lists doesn't contain value, the error is zero
     if len(x) == 0:
         return 0.0
@@ -103,11 +104,15 @@ def experiment(loc, rss, txid=None):
         for smooth_val in smooth_vals:
             MAEs = []
             MSEs = []
-            #print len(loc_anchor_x) ,len(loc_anchor_y), len(rss_anchor), len(loc_pred_x), len(loc_pred_y)
-            output = get_estimated_rss(loc_anchor_x, loc_anchor_y, rss_anchor, loc_pred_x, loc_pred_y, smooth_val)
+            #print len(loc_anchor_x) ,len(loc_anchor_y), len(rss_anchor), \
+            #   len(loc_pred_x), len(loc_pred_y)
+            output = get_estimated_rss(loc_anchor_x, loc_anchor_y, rss_anchor, \
+                loc_pred_x, loc_pred_y, smooth_val)
             MAEs.append(MAE(output, rss_pred))
             MSEs.append(MSE(output, rss_pred))
-        print "\t MSE: {0:10.4f}    MAE: {1:10.4f}    Num anchor nodes: {2:3d}".format(min(MSEs), min(MAEs), len(loc_anchor_x))
+        print "\t MSE: {0:10.4f}    MAE: {1:10.4f}    "\
+            "Num anchor nodes: {2:3d}".format(min(MSEs), min(MAEs),\
+             len(loc_anchor_x))
 
 
 def main():
