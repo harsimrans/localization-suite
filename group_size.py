@@ -6,6 +6,9 @@ import pandas as pd
 from multi_localize import *
 #import pylab
 
+import sys
+from argparse import ArgumentParser
+
 RADIUS = 100.0 # the radius in meters around which to consider 
 
 def calculate_grid_centers(x_max, y_max, x_min, y_min, delta):
@@ -58,7 +61,7 @@ def tweak_rss_powers(loc, power, max_mag=0.0):
         new_loc.append((lat, lon))
     return new_loc, new_power
 
-def experiment():
+def experiment(gs, ge, nlist):
 
     # read the data 
     rss = pd.read_csv("rss_val.csv", header=None)
@@ -67,11 +70,11 @@ def experiment():
     grid_centers = calculate_grid_centers(10, 13, -5, -5, 1.0)
 
     # possible values of group size to check for
-    group_sizes = range(1, 44)
+    group_sizes = range(gs, ge)
     
-    noise_list = [0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 8.0, 10.0, 12.0, 14.0]
-    noise_list = []
-    print "check"
+    #noise_list = [0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 8.0, 10.0, 12.0, 14.0]
+    noise_list = nlist
+    
     for noi in noise_list:
         print "--> adding noise: ", noi
         for g in group_sizes:
@@ -133,5 +136,19 @@ def experiment():
                 error_list.append(np.mean(errors))
             print "    * error for group size: ", g, np.mean(error_list)
 
+
+def main():
+    parser = ArgumentParser()
+    parser.add_argument("-g", "--grange", dest="ngroup", help="takes the range of group size", nargs='+', required=True, type=int)
+    parser.add_argument("-n", "--nrange", dest="nrange", help="takes the range of noise", nargs='+', default=[0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 8.0, 10.0, 12.0, 14.0], type=float)
+
+    #parser.add_argument("word",  help="Word / count which ever is applicable")
+    args, other_args = parser.parse_known_args()
+
+    experiment(args.ngroup[0], args.ngroup[1]+1, args.nrange)
+
+
+
 if __name__=='__main__':
-    experiment()
+    #experiment()
+    main()
