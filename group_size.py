@@ -97,12 +97,12 @@ def experiment(gs, ge, nlist):
                 index = rss_temp.argmax()
                 
                 for j in range(44):
-                            if i != j:
-                                dist = (loc[0][j] - loc[0][index])**2 + (loc[1][j] - loc[1][index])**2 
-                                if dist <= (RADIUS ** 2):
-                                    receivers.append((loc[0][j], loc[1][j]))
-                                    powers_watt.append(10 ** (rss[i][j] / 10))
-                                    powers.append(rss[i][j])
+                    if i != j:
+                        dist = (loc[0][j] - loc[0][index])**2 + (loc[1][j] - loc[1][index])**2 
+                        if dist <= (RADIUS ** 2):
+                            receivers.append((loc[0][j], loc[1][j]))
+                            powers_watt.append(10 ** (rss[i][j] / 10))
+                            powers.append(rss[i][j])
                 
                 while NUM:
                     # randomly make groups of size g 
@@ -150,5 +150,4 @@ def main():
 
 
 if __name__=='__main__':
-    #experiment()
     main()
