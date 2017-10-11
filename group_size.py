@@ -4,12 +4,11 @@ import math, sys, random
 import numpy as np
 import pandas as pd
 from multi_localize import *
-#import pylab
 
 import sys
 from argparse import ArgumentParser
 
-RADIUS = 100.0 # the radius in meters around which to consider 
+RADIUS = 1000.0 # the radius in meters around which to consider 
 
 def calculate_grid_centers(x_max, y_max, x_min, y_min, delta):
     '''calculates and return the centers of the grid voxels'''
@@ -28,6 +27,7 @@ def calculate_grid_centers(x_max, y_max, x_min, y_min, delta):
       for y in y_centers:
         centers.append((x, y))
     return centers
+
 def tweak_rss_powers(loc, power, max_mag=0.0):
     ''' mag is the magnitude of noise '''
     PATH_LOSS_EXPONENT = 2.0
@@ -52,16 +52,16 @@ def tweak_rss_powers(loc, power, max_mag=0.0):
                 total = 1.0
                 break
             else:   
-                new_pow_avg += (100000.0/dist)**4 * power[j]
-                total += (100000.0/dist) ** 4. 
-            #dist = (get_distance(lat, lon, t_loc[0], t_loc[1]) - get_distance(t_loc[0], t_loc[1], loc[j][0], loc[j][1])) ** 2
+                new_pow_avg += (100000.0/dist)**2 * power[j]
+                total += (100000.0/dist) ** 2 
+
         new_pow_avg /= total    
         
         new_power.append(new_pow_avg)
         new_loc.append((lat, lon))
     return new_loc, new_power
 
-def experiment(gs, ge, nlist):
+def experiment(gs, ge, nlist, sample, iterations):
 
     # read the data 
     rss = pd.read_csv("rss_val.csv", header=None)
@@ -81,7 +81,7 @@ def experiment(gs, ge, nlist):
             error_list = []
             for i in range(44):
                 # repeat n number of times
-                NUM = 1
+                NUM = iterations
                 errors = []
 
                 # prepare the list of receivers
@@ -98,23 +98,49 @@ def experiment(gs, ge, nlist):
                 
                 for j in range(44):
                     if i != j:
-                        dist = (loc[0][j] - loc[0][index])**2 + (loc[1][j] - loc[1][index])**2 
+                        dist = (loc[0][j] - loc[0][index])**2 + (loc[1][j] -\
+                             loc[1][index])**2 
                         if dist <= (RADIUS ** 2):
                             receivers.append((loc[0][j], loc[1][j]))
                             powers_watt.append(10 ** (rss[i][j] / 10))
                             powers.append(rss[i][j])
                 
                 while NUM:
-                    # randomly make groups of size g 
                     receivers_g = []
                     powers_g = []
 
-                    indexes = random.sample(range(0, len(receivers)), g)
-                    for ind in indexes:
-                        receivers_g.append(receivers[ind])
-                        powers_g.append(powers_watt[ind])
+                    if sample == 'r': # random sampling
+                        indexes = random.sample(range(0, len(receivers)), g)
+                        for ind in indexes:
+                            receivers_g.append(receivers[ind])
+                            powers_g.append(powers_watt[ind])
+                    elif sample == 'p': # proximity based sampling
+                        
+                        # pick the maxima 
+                        rss_max = -1000.0 # resonable value, below this the \
+                            #signal won't make any sense
+                        index = None
+                        for j in range(0, 43):
+                                if powers_watt[j] > rss_max:
+                                    index = j
+                                    rss_max = powers_watt[j] 
 
-                    receivers_g, powers_g = tweak_rss_powers(receivers_g, powers_g, noi)
+                        # pick group size around that receiver
+                        l = range(0, 43)
+                        l = sorted(l, key=lambda x: math.sqrt((receivers[x][0] \
+                            - receivers[index][0])**2 + (receivers[x][1] -\
+                                 receivers[index][1]) **2))
+                        
+                        receivers_g = [receivers[x] for x in l[0:g]]
+                        powers_g = [powers_watt[x] for x in l[0:g]]
+                        lats = []
+                        lons = []
+                        for j in range(len(receivers_g)):
+                            lats.append(receivers_g[j][0])
+                            lons.append(receivers_g[j][1])
+                        
+                    receivers_g, powers_g = tweak_rss_powers(receivers_g,\
+                                             powers_g, noi)
                     
                     # locate the transmitter
                     x_cap = localize(receivers_g, powers_g, grid_centers)
@@ -124,12 +150,11 @@ def experiment(gs, ge, nlist):
                     error = 1000.0
                     best = 0
                     for n in top_n:
-                        #bl = pylab.scatter(grid_centers[n][0], grid_centers[n][1], color="black", label="Best Picks")
-                        #print "Distance from best: ", get_distance(grid_centers[top_n[0]][0], grid_centers[top_n[0]][1], grid_centers[n][0], grid_centers[n][1])
-                        if get_distance(grid_centers[n][0], grid_centers[n][1], loc[0][i], loc[1][i]) < error:
+                        if get_distance(grid_centers[n][0], grid_centers[n][1],\
+                                         loc[0][i], loc[1][i]) < error:
                             best = n
-                            error = get_distance(grid_centers[n][0], grid_centers[n][1], loc[0][i], loc[1][i])
-                        #print "error at ", i, " ", error, " using best of ", len(top_n)
+                            error = get_distance(grid_centers[n][0], \
+                                    grid_centers[n][1], loc[0][i], loc[1][i])
                     
                     errors.append(error)
                     NUM -= 1
@@ -139,13 +164,24 @@ def experiment(gs, ge, nlist):
 
 def main():
     parser = ArgumentParser()
-    parser.add_argument("-g", "--grange", dest="ngroup", help="takes the range of group size", nargs='+', required=True, type=int)
-    parser.add_argument("-n", "--nrange", dest="nrange", help="takes the range of noise", nargs='+', default=[0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 8.0, 10.0, 12.0, 14.0], type=float)
+    parser.add_argument("-g", "--grange", dest="ngroup", nargs='+', \
+            required=True, type=int,  help="takes the range of group size")
+    parser.add_argument("-n", "--nrange", dest="nrange", nargs='+', \
+            default=[14.0, 12.0, 10.0, 8.0, 6.0, 5.0, 4.0, 3.0, 2.0, 1.0, 0.0],\
+            type=float, help="takes the range of noise")
+    parser.add_argument("-i", "--iter", dest="niters", default=1, type=int,\
+            help="number of iterations to run each group size for")
+    parser.add_argument("-s", "--sample", dest="sample", action="store", \
+            choices=['r','p'], default='r', type=str, \
+            help="how to sample: r (random) [default] and p (proximity)")
+    parser.add_argument("-r", "--radius", dest="radius", default=1000.0,\
+            type=float,  help="radius around local maxima to consider (default: 1000m)")
 
-    #parser.add_argument("word",  help="Word / count which ever is applicable")
     args, other_args = parser.parse_known_args()
 
-    experiment(args.ngroup[0], args.ngroup[1]+1, args.nrange)
+    global RADIUS
+    RADIUS = args.radius
+    experiment(args.ngroup[0], args.ngroup[1]+1, args.nrange, args.sample, args.niters)
 
 
 
