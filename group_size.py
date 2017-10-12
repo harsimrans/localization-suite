@@ -11,7 +11,14 @@ from argparse import ArgumentParser
 RADIUS = 1000.0 # the radius in meters around which to consider 
 
 def calculate_grid_centers(x_max, y_max, x_min, y_min, delta):
-    '''calculates and return the centers of the grid voxels'''
+    '''
+        calculates and return the centers of the grid voxels in the area
+        defined by x_max, y_max, x_min, y_min
+        x_min, x_max: min and max value of x coordinate
+        y_min, y_max: min and max value of y coordinate
+        delta: distance between the center of the voxels
+
+    '''
     x_centers = []
     y_centers = []
     while x_min <= x_max:
@@ -28,19 +35,32 @@ def calculate_grid_centers(x_max, y_max, x_min, y_min, delta):
         centers.append((x, y))
     return centers
 
-def tweak_rss_powers(loc, power, max_mag=0.0):
-    ''' mag is the magnitude of noise '''
+def tweak_rss_powers(loc, power, max_mag=0.0, vary_privacy=True):
+    ''' 
+        for each location return a false/new location and the corresponding 
+        power calculated at the false/new location
+        loc: list of location of sensors, each element (x, y) pair
+        max_mag: is the maximum magnitude of noise to define range of noise 
+                    selection as (0, max_mag).
+        vary_privacy: if to consider each user might have varying privacy level
+                    Mimics this by randomly choosing max_noise for each user as
+                    max_noise = random.uniform(0, max_mag)  
+    '''
     PATH_LOSS_EXPONENT = 2.0
     new_loc = []
     new_power = []
-    
-    
+
+
     for i in range(len(loc)):
-        #mag = random.uniform(0, 5)
-        mag = random.uniform(0, max_mag)
+        
+        if vary_privacy:
+            max_noise = random.uniform(0, max_mag)
+        else:
+            max_noise = max_mag
+
         # CHOOSE the point randomly
-        lat = loc[i][0] + random.uniform(-1*mag, mag)
-        lon = loc[i][1] + random.uniform(-1*mag, mag)
+        lat = loc[i][0] + random.uniform(-1*max_noise, max_noise)
+        lon = loc[i][1] + random.uniform(-1*max_noise, max_noise)
         
         #calculate the new power weighted RSS average
         total = 0.0
@@ -61,7 +81,7 @@ def tweak_rss_powers(loc, power, max_mag=0.0):
         new_loc.append((lat, lon))
     return new_loc, new_power
 
-def experiment(gs, ge, nlist, sample, iterations):
+def experiment(gs, ge, nlist, sample, iterations, vary_privacy):
 
     # read the data 
     rss = pd.read_csv("rss_val.csv", header=None)
@@ -140,7 +160,7 @@ def experiment(gs, ge, nlist, sample, iterations):
                             lons.append(receivers_g[j][1])
                         
                     receivers_g, powers_g = tweak_rss_powers(receivers_g,\
-                                             powers_g, noi)
+                                             powers_g, noi, vary_privacy)
                     
                     # locate the transmitter
                     x_cap = localize(receivers_g, powers_g, grid_centers)
@@ -176,12 +196,16 @@ def main():
             help="how to sample: r (random) [default] and p (proximity)")
     parser.add_argument("-r", "--radius", dest="radius", default=1000.0,\
             type=float,  help="radius around local maxima to consider (default: 1000m)")
+    parser.add_argument("-v", "--vpriv", dest="vpriv", action="store_true",\
+            help="different users have different levels of privacy settings")
+
 
     args, other_args = parser.parse_known_args()
 
     global RADIUS
     RADIUS = args.radius
-    experiment(args.ngroup[0], args.ngroup[1]+1, args.nrange, args.sample, args.niters)
+    experiment(args.ngroup[0], args.ngroup[1]+1, args.nrange, args.sample, \
+        args.niters, args.vpriv)
 
 
 

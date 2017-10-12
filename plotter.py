@@ -25,8 +25,6 @@ def plot(lat, lon, rss, trans_x, trans_y):
     fig, ax = plt.subplots()
     ax.scatter(lat, lon, color="blue")
 
-    ax.scatter(lat, lon)
-
     for i, txt in enumerate(rss):
         label = str(i+1) + ' ' + str(round(cdist(lat[i], lon[i], trans_x,\
              trans_y), 2)) + " " + str(round(float(txt), 2))
