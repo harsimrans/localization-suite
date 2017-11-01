@@ -81,7 +81,17 @@ def tweak_rss_powers(loc, power, max_mag=0.0, vary_privacy=True):
         new_loc.append((lat, lon))
     return new_loc, new_power
 
-def experiment(gs, ge, nlist, sample, iterations, vary_privacy):
+def change_location(receivers_g, noi):
+    new_loc = []
+    for rec in receivers_g:
+        lat = rec[0]
+        lon = rec[1]
+        lat += random.uniform(-1*noi, noi)
+        lon += random.uniform(-1*noi, noi)
+        new_loc.append((lat, lon))
+    return new_loc
+
+def experiment(gs, ge, nlist, sample, iterations, vary_privacy, change_rss):
 
     # read the data 
     rss = pd.read_csv("rss_val.csv", header=None)
@@ -158,10 +168,12 @@ def experiment(gs, ge, nlist, sample, iterations, vary_privacy):
                         for j in range(len(receivers_g)):
                             lats.append(receivers_g[j][0])
                             lons.append(receivers_g[j][1])
-                        
-                    receivers_g, powers_g = tweak_rss_powers(receivers_g,\
-                                             powers_g, noi, vary_privacy)
                     
+                    if change_rss:
+                        receivers_g, powers_g = tweak_rss_powers(receivers_g,\
+                                             powers_g, noi, vary_privacy)
+                    else:
+                        receivers_g = change_location(receivers_g, noi)
                     # locate the transmitter
                     x_cap = localize(receivers_g, powers_g, grid_centers)
 
@@ -198,6 +210,8 @@ def main():
             type=float,  help="radius around local maxima to consider (default: 1000m)")
     parser.add_argument("-v", "--vpriv", dest="vpriv", action="store_true",\
             help="different users have different levels of privacy settings")
+    parser.add_argument("-c", "--changerss", dest="crss", action="store_true",\
+            help="whether to change the rss value or not")
 
 
     args, other_args = parser.parse_known_args()
@@ -205,7 +219,7 @@ def main():
     global RADIUS
     RADIUS = args.radius
     experiment(args.ngroup[0], args.ngroup[1]+1, args.nrange, args.sample, \
-        args.niters, args.vpriv)
+        args.niters, args.vpriv, args.crss)
 
 
 
