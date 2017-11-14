@@ -1,0 +1,10 @@
+localize becomes localize_prob
+and localize now return top n cadidates for transmitter localization
+get_distance becomes edist
+
+plot becomes plot_with_trans with added filename argument
+plot_recievers is added: which plots the receivers or saves them as per user request
+
+
+PLAN:
+This module will replace multi_localize and has more features
