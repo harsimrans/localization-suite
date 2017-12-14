@@ -5,6 +5,9 @@ import numpy as np
 import pandas as pd
 from multi_localize import *
 
+from sklearn.cluster import *
+from sklearn.metrics import silhouette_samples, silhouette_score
+
 import sys
 from argparse import ArgumentParser
 
@@ -73,6 +76,116 @@ def tweak_rss_powers(loc, power, max_mag=0.0, vary_privacy=True):
                 break
             else:   
                 new_pow_avg += (100000.0/dist)**2 * power[j]
+                total += (100000.0/dist) ** 2 
+
+        new_pow_avg /= total    
+        
+        new_power.append(new_pow_avg)
+        new_loc.append((lat, lon))
+    return new_loc, new_power
+
+
+def cdist(loc1, loc2):
+    return (loc1[0] - loc2[0])**2 + (loc1[1] - loc2[1])**2
+
+def get_score(false_loc, prox):
+    dist = 0.0
+    for l in prox:
+        dist += cdist(false_loc, l)
+    return dist
+
+def proximity(loc, loc_list, num):
+    sorted_loc = sorted (loc_list, key = lambda x: (x[0] - loc[0])**2 + (x[1] - loc[1])**2)
+    return sorted_loc[:num]
+
+def return_best_false_location(false_locs, locs):
+    scores = []
+    for f in false_locs:
+        k = 6
+        # pick the top k locations based on proxity
+        prox = proximity(f, locs, k)
+        scores.append(get_score(f, locs))
+    return false_locs[np.argmax(scores)][0], false_locs[np.argmax(scores)][1]
+
+def list_to_freq_dict(lis):
+    d = {}
+    for l in lis:
+        if l in d:
+            d[l] += 1
+        else:
+            d[l] = 1
+    return d
+
+
+def tweak_rss_powers_using_k(loc, power, max_mag=0.0, k=3, vary_privacy=True):
+    ''' 
+        for each location return a false/new location and the corresponding 
+        power calculated at the false/new location
+        loc: list of location of sensors, each element (x, y) pair
+        max_mag: is the maximum magnitude of noise to define range of noise 
+                    selection as (0, max_mag).
+        vary_privacy: if to consider each user might have varying privacy level
+                    Mimics this by randomly choosing max_noise for each user as
+                    max_noise = random.uniform(0, max_mag)  
+    '''
+
+    PATH_LOSS_EXPONENT = 2.0
+    new_loc = []
+    new_power = []
+
+    ## clustering code 
+    X = np.array(loc)
+    kmeans = KMeans(n_clusters=4, random_state=0).fit(X)
+    freq = list_to_freq_dict(kmeans.labels_)
+
+    for i in range(len(loc)):
+        
+        if vary_privacy:
+            max_noise = random.uniform(0, max_mag)
+        else:
+            max_noise = max_mag
+
+        # CHOOSE the point randomly
+        lat = loc[i][0] + random.uniform(-1*max_noise, max_noise)
+        lon = loc[i][1] + random.uniform(-1*max_noise, max_noise)
+        
+        NUM_FALSE = 3
+        
+
+        # generate NUM_FALSE Locations
+        false_locations = []
+        trials = 100
+        while len(false_locations) < 3 and trials < 100:
+            lat = loc[i][0] + random.uniform(-1*max_noise, max_noise)
+            lon = loc[i][1] + random.uniform(-1*max_noise, max_noise)
+            #print "Cluster predict: ", kmeans.predict([[lat, lon]])
+            if freq[kmeans.predict([[lat, lon]])[0]] > 0:
+                false_locations.append((lat, lon))
+            trials -= 1
+        
+        # check if false locations empty
+        while len(false_locations) == 0:
+            lat = loc[i][0] + random.uniform(-1*max_noise, max_noise)
+            lon = loc[i][1] + random.uniform(-1*max_noise, max_noise)
+            freq[kmeans.predict([[lat, lon]])[0]] -= 1
+            false_locations.append((lat, lon))
+
+        lat, lon = return_best_false_location(false_locations, loc)
+        freq[kmeans.predict([[lat, lon]])[0]] -= 1
+
+        sorted_loc, sorted_pow = zip(*sorted(zip(loc, power), key=lambda x: get_distance(lat, lon, x[0][0], x[0][1])))
+        
+        #calculate the new power weighted RSS average
+        total = 0.0
+        new_pow_avg = 0.0
+        for j in range(min(k, len(loc))):
+            dist = get_distance(lat, lon, sorted_loc[j][0], sorted_loc[j][1])
+            if dist == 0.0:
+                new_pow_avg = sorted_pow[j]
+                total = 1.0
+                break
+            else:   
+                new_pow_avg += (100000.0/dist)**2 * sorted_pow[j]
                 total += (100000.0/dist) ** 2 
 
         new_pow_avg /= total    
@@ -170,8 +283,10 @@ def experiment(gs, ge, nlist, sample, iterations, vary_privacy, change_rss):
                             lons.append(receivers_g[j][1])
                     
                     if change_rss:
-                        receivers_g, powers_g = tweak_rss_powers(receivers_g,\
-                                             powers_g, noi, vary_privacy)
+                        #receivers_g, powers_g = tweak_rss_powers(receivers_g,\
+                        #                     powers_g, noi, vary_privacy)
+                        receivers_g, powers_g = tweak_rss_powers_using_k(receivers_g,\
+                                              powers_g, noi, 5, vary_privacy)
                     else:
                         receivers_g = change_location(receivers_g, noi)
                     # locate the transmitter
