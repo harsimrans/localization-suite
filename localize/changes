@@ -5,6 +5,9 @@ get_distance becomes edist
 plot becomes plot_with_trans with added filename argument
 plot_recievers is added: which plots the receivers or saves them as per user request
 
+TODO:
+aggregate sensor data perturbation functions/algorithms 
+Add falsify location only functions 
 
 PLAN:
 This module will replace multi_localize and has more features
