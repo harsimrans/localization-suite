@@ -4,6 +4,70 @@ import matplotlib.pyplot as plt
 import matplotlib.mlab as ml
 import math
 import scipy
+import os
+
+class Receiver:
+    def __init__(self, x, y, rss=None):
+        self.x = x
+        self.y = y
+        self.rss = rss
+
+    def position(self):
+        return self.x, self.y
+
+    def __str__(self):
+        return "(" + str(self.x) + "," + str(self.y) + ")"
+
+
+
+def select_subset(rev_loc, xmin, xmax, ymin, ymax):
+    """
+        Given a list of receiver location pairs along 
+        with their RSS, picks only the receivers confined 
+        in an area (xmin , xmax, ymin, ymax)
+    """
+    new_rl = []
+    for r in rev_loc:
+        if xmin <= r[0][0] <= xmax and ymin <= r[0][1] <= ymax:
+            new_rl.append(r)
+    return 
+
+def receiver_with_radius(receivers, x, y, radius):
+    return 
+    
+def read_dataset():
+    '''
+        reads receiver location and rss values
+
+    '''
+    # read the data 
+    RSS_FILE = os.path.join(os.path.dirname(__file__), 'rss.csv')
+    LOC_FILE = os.path.join(os.path.dirname(__file__), 'loc.csv')
+    
+    #rss = pd.read_csv("rss_val.csv", header=None)
+    #loc = pd.read_csv("loc_val.csv", header=None)
+    rss = pd.read_csv(RSS_FILE, header=None)
+    loc = pd.read_csv(LOC_FILE, header=None)
+    return loc, rss
+
+def get_receiver_snapshots(loc, rss, NUM):
+    '''
+        generates a list of receiver snapshots
+    '''
+    recv_list = []
+    trans_list = []
+    for i in range(NUM):
+        
+        # get the receivers
+        receivers = []
+        for j in range(NUM):
+            if i != j:
+                receivers.append((loc[0][i], loc[1][i], rss[i][j]))
+        
+        trans_list.append((loc[0][i], loc[1][i]))
+        recv_list.append(receivers)
+    return recv_list, trans_list
+
 
 
 ######### HELPER FUNCTIONS ##################
@@ -41,7 +105,7 @@ def calculate_grid_centers(x_max, y_max, x_min, y_min, delta):
     for x in x_centers:
       for y in y_centers:
         centers.append((x, y))
-    return centers
+    return np.asarray(centers)
 
 ########### END OF HELPER FUNCTIONS ###############
 
@@ -188,7 +252,7 @@ def localize_prob(receivers, powers, grid_centers, prob=True):
 
 	# return the measure of some likelihood of each location
 	return x_cap
-
+'''
 def localize(receivers, powers, grid_centers, top_n=1):
 	"""
 		Give a list of locations on a grid.
@@ -216,6 +280,30 @@ def localize(receivers, powers, grid_centers, top_n=1):
 		trans_candidates.append((grid_centers[n][0], grid_centers[n][1]))
 
 	return trans_candidates
+
+'''
+
+def localize(receivers, grid_centers, top_n=1):
+    
+    # separate out the powers
+    powers = np.asarray(receivers)[:, [2]]
+    receivers = np.asarray(receivers)[:, [0,1]]
+    powers = 10**(powers / 10)
+    
+    W = compute_weight_matrix(receivers, grid_centers)
+    C = calculate_covariance_matrix(grid_centers)
+    pi = np.matmul(np.linalg.inv(np.add(np.matmul(np.transpose(W), W), np.linalg.inv(C))), np.transpose(W))
+    
+    x_cap = np.matmul(pi, powers)
+    x_cap = x_cap.reshape(x_cap.shape[0], )
+    top_n = x_cap.argsort()[-1*top_n:][::-1] # top n indexes
+
+    trans_candidates = []
+    for n in top_n:
+        trans_candidates.append((grid_centers[n][0], grid_centers[n][1]))
+
+    return trans_candidates
+
 
 ################## END OF FUNCTIONS FOR LOCALIZATION ########################
 
