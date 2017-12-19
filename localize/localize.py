@@ -5,36 +5,9 @@ import matplotlib.mlab as ml
 import math
 import scipy
 import os
-
-class Receiver:
-    def __init__(self, x, y, rss=None):
-        self.x = x
-        self.y = y
-        self.rss = rss
-
-    def position(self):
-        return self.x, self.y
-
-    def __str__(self):
-        return "(" + str(self.x) + "," + str(self.y) + ")"
+import random
 
 
-
-def select_subset(rev_loc, xmin, xmax, ymin, ymax):
-    """
-        Given a list of receiver location pairs along 
-        with their RSS, picks only the receivers confined 
-        in an area (xmin , xmax, ymin, ymax)
-    """
-    new_rl = []
-    for r in rev_loc:
-        if xmin <= r[0][0] <= xmax and ymin <= r[0][1] <= ymax:
-            new_rl.append(r)
-    return 
-
-def receiver_with_radius(receivers, x, y, radius):
-    return 
-    
 def read_dataset():
     '''
         reads receiver location and rss values
@@ -62,11 +35,55 @@ def get_receiver_snapshots(loc, rss, NUM):
         receivers = []
         for j in range(NUM):
             if i != j:
-                receivers.append((loc[0][i], loc[1][i], rss[i][j]))
+                receivers.append([loc[0][i], loc[1][i], rss[i][j]])
         
-        trans_list.append((loc[0][i], loc[1][i]))
+        trans_list.append([loc[0][i], loc[1][i]])
         recv_list.append(receivers)
     return recv_list, trans_list
+
+
+
+def add_location_noise(receivers, noi):
+    for rec in receivers:
+        rec[0] = rec[0] + random.uniform(-1*noi, noi)
+        rec[1] = rec[1] + random.uniform(-1*noi, noi)
+    return receivers
+
+def add_location_noise_vary_privacy(receivers, noi):
+    for rec in receivers:
+        n = random.uniform(0, noi)
+        rec[0] = rec[0] + random.uniform(-1*n, n)
+        rec[1] = rec[1] + random.uniform(-1*n, n)
+    return receivers
+
+
+
+class Receiver:
+    def __init__(self, x, y, rss=None):
+        self.x = x
+        self.y = y
+        self.rss = rss
+
+    def position(self):
+        return self.x, self.y
+
+    def __str__(self):
+        return "(" + str(self.x) + "," + str(self.y) + ")"
+
+
+
+def select_subset(rev_loc, xmin, xmax, ymin, ymax):
+    """
+        Given a list of receiver location pairs along 
+        with their RSS, picks only the receivers confined 
+        in an area (xmin , xmax, ymin, ymax)
+    """
+    new_rl = []
+    for r in rev_loc:
+        if xmin <= r[0][0] <= xmax and ymin <= r[0][1] <= ymax:
+            new_rl.append(r)
+    return new_rl
+    
 
 
 
