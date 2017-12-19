@@ -21,9 +21,9 @@ def main():
 	error = []
 	
 	for i in range(len(recv_list)):
-		#noisy_recv_list = add_location_noise(recv_list[i], NOISE_VAL)
+		noisy_recv_list = add_location_noise(recv_list[i], NOISE_VAL)
 		noisy_recv_list = add_location_noise_vary_privacy(recv_list[i], NOISE_VAL)
-		
+		noisy_recv_list = tweak_rss_powers(recv_list[i], NOISE_VAL)
 		tx_loc = localize(noisy_recv_list, grid_centers)[0]
 		e = edist(tx_loc[0], tx_loc[1], trans_list[i][0], trans_list[i][1])
 		error.append(e)

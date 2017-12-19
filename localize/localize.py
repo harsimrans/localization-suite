@@ -35,7 +35,7 @@ def get_receiver_snapshots(loc, rss, NUM):
         receivers = []
         for j in range(NUM):
             if i != j:
-                receivers.append([loc[0][i], loc[1][i], rss[i][j]])
+                receivers.append([loc[0][j], loc[1][j], rss[i][j]])
         
         trans_list.append([loc[0][i], loc[1][i]])
         recv_list.append(receivers)
@@ -44,19 +44,48 @@ def get_receiver_snapshots(loc, rss, NUM):
 
 
 def add_location_noise(receivers, noi):
+    noisy_receivers = []
     for rec in receivers:
-        rec[0] = rec[0] + random.uniform(-1*noi, noi)
-        rec[1] = rec[1] + random.uniform(-1*noi, noi)
-    return receivers
+        lat = rec[0] + random.uniform(-1*noi, noi)
+        lon = rec[1] + random.uniform(-1*noi, noi)
+        noisy_receivers.append([lat, lon, rec[2]])
+    return noisy_receivers
 
 def add_location_noise_vary_privacy(receivers, noi):
+    noisy_receivers = []
     for rec in receivers:
         n = random.uniform(0, noi)
-        rec[0] = rec[0] + random.uniform(-1*n, n)
-        rec[1] = rec[1] + random.uniform(-1*n, n)
-    return receivers
+        lat = rec[0] + random.uniform(-1*n, n)
+        lon = rec[1] + random.uniform(-1*n, n)
+        noisy_receivers.append([lat, lon, receivers[2]])
+    return noisy_receivers
 
+def tweak_rss_powers(receivers, max_mag=0.0):
+    dup_receivers = []
+    
+    for r in receivers:
+        # CHOOSE the point randomly
+        lat = r[0] + random.uniform(-1*max_mag, max_mag)
+        lon = r[1] + random.uniform(-1*max_mag, max_mag)
+        
+        #calculate the new power weighted RSS average
+        total = 0.0
+        new_pow_avg = 0.0
+        for or_rev in receivers:
+            dist = edist(lat, lon, or_rev[0], or_rev[1])
+            if dist == 0.0:
+                new_pow_avg = or_rev[2]
+                total = 1.0
+                break
+            else:   
+                new_pow_avg += (100000.0/dist)**2 * or_rev[2]
+                total += (100000.0/dist) ** 2 
 
+        new_pow_avg /= total    
+        
+        new_pow_avg
+        dup_receivers.append([lat, lon, new_pow_avg])
+    return dup_receivers
 
 class Receiver:
     def __init__(self, x, y, rss=None):
