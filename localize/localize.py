@@ -1,3 +1,4 @@
+from __future__ import print_function
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -60,32 +61,65 @@ def add_location_noise_vary_privacy(receivers, noi):
         noisy_receivers.append([lat, lon, receivers[2]])
     return noisy_receivers
 
-def tweak_rss_powers(receivers, max_mag=0.0):
+def estimate_rss_powers(receivers, lat, lon):
+    '''
+       Given a set of receivers, estimate the rss at location (lat, lon)
+    '''
+
+    #calculate the new power weighted RSS average
+    total = 0.0
+    new_pow_avg = 0.0
+    for or_rev in receivers:
+        dist = edist(lat, lon, or_rev[0], or_rev[1])
+        if dist == 0.0:
+            new_pow_avg = or_rev[2]
+            total = 1.0
+            break
+        else:   
+            new_pow_avg += (100000.0/dist)**2 * or_rev[2]
+            total += (100000.0/dist) ** 2 
+
+    new_pow_avg /= total    
+    
+    return new_pow_avg
+
+
+def false_location_estimate_rss(receivers, max_mag=0.0):
     dup_receivers = []
     
     for r in receivers:
         # CHOOSE the point randomly
         lat = r[0] + random.uniform(-1*max_mag, max_mag)
         lon = r[1] + random.uniform(-1*max_mag, max_mag)
-        
-        #calculate the new power weighted RSS average
-        total = 0.0
-        new_pow_avg = 0.0
-        for or_rev in receivers:
-            dist = edist(lat, lon, or_rev[0], or_rev[1])
-            if dist == 0.0:
-                new_pow_avg = or_rev[2]
-                total = 1.0
-                break
-            else:   
-                new_pow_avg += (100000.0/dist)**2 * or_rev[2]
-                total += (100000.0/dist) ** 2 
 
-        new_pow_avg /= total    
-        
-        new_pow_avg
+        new_pow_avg = estimate_rss_powers(receivers, lat, lon)
         dup_receivers.append([lat, lon, new_pow_avg])
     return dup_receivers
+
+def random_false_location(receivers, grid=(10, 13, -5, -5), num_sample=None):
+    '''
+       takes a list of receivers and grid dims
+       grid dims: (xmax, ymax, xmin, ymin)
+    '''
+    xmin = grid[2]
+    xmax = grid[0]
+    ymin = grid[3]
+    ymax = grid[1]
+
+    false_receiver = []
+    if num_sample == None:
+        num_sample = len(receivers)
+
+    for i in range(num_sample):
+        # pick a location 
+        lat = random.uniform(xmin, xmax)
+        lon = random.uniform(ymin, ymax)
+
+        # calculate the RSS
+        power = estimate_rss_powers(receivers, lat, lon)
+
+        false_receiver.append([lat, lon, power])
+    return false_receiver
 
 class Receiver:
     def __init__(self, x, y, rss=None):
@@ -205,7 +239,7 @@ def plot_recievers(lat, lon, rss, filename=None):
 
     for i, txt in enumerate(rss):
         label = str(i+1) + ' ' + str(round(float(txt), 2))
-        print label
+        print(label)
         ax.annotate(label, (lat[i], lon[i]))
 
     plt.xlabel("X-coordinate (m)")
@@ -279,58 +313,19 @@ def calculate_covariance_matrix(voxels, sigma2=0.5, delta=1.0):
 		counter += 1
 	return C
 
-def localize_prob(receivers, powers, grid_centers, prob=True):
-	"""
-		Give a list of locations on a grid.
-		Returns the likehood of transmitter being
-		at each of the given list of locations.
-
-		:type receivers: List[(float, float)]
-        :type powers: List[float]
-        :type grid_centers: List[(float, float)]
-        :type prob: Bool
-        :rtype: List[float]
-	"""
-	W = compute_weight_matrix(receivers, grid_centers)
-	C = calculate_covariance_matrix(grid_centers)
-	pi = np.matmul(np.linalg.inv(np.add(np.matmul(np.transpose(W), W), np.linalg.inv(C))), np.transpose(W))
-	x_cap = np.matmul(pi, np.array(powers))
-
-	# return the measure of some likelihood of each location
-	return x_cap
-'''
-def localize(receivers, powers, grid_centers, top_n=1):
-	"""
-		Give a list of locations on a grid.
-		Returns the list of top n locations candidates
-		for transmitter location.
-
-		:type receivers: List[(float, float)]
-        :type powers: List[float]
-        :type grid_centers: List[(float, float)]
-        :type top_n: int
-
-        :rtype: List[(float, float)]
-	"""
-	n = int(n)
-
-	W = compute_weight_matrix(receivers, grid_centers)
-	C = calculate_covariance_matrix(grid_centers)
-	pi = np.matmul(np.linalg.inv(np.add(np.matmul(np.transpose(W), W), np.linalg.inv(C))), np.transpose(W))
-	x_cap = np.matmul(pi, np.array(powers))
-
-	top_n = x_cap.argsort()[-1:][::-n] # top n indexes
-
-	trans_candidates = []
-	for n in top_n:
-		trans_candidates.append((grid_centers[n][0], grid_centers[n][1]))
-
-	return trans_candidates
-
-'''
 
 def localize(receivers, grid_centers, top_n=1):
     
+    x_cap = localize_prob(receivers, grid_centers)
+    top_n = x_cap.argsort()[-1*top_n:][::-1] # top n indexes
+
+    trans_candidates = []
+    for n in top_n:
+        trans_candidates.append((grid_centers[n][0], grid_centers[n][1]))
+
+    return trans_candidates
+
+def localize_prob(receivers, grid_centers):
     # separate out the powers
     powers = np.asarray(receivers)[:, [2]]
     receivers = np.asarray(receivers)[:, [0,1]]
@@ -342,13 +337,8 @@ def localize(receivers, grid_centers, top_n=1):
     
     x_cap = np.matmul(pi, powers)
     x_cap = x_cap.reshape(x_cap.shape[0], )
-    top_n = x_cap.argsort()[-1*top_n:][::-1] # top n indexes
 
-    trans_candidates = []
-    for n in top_n:
-        trans_candidates.append((grid_centers[n][0], grid_centers[n][1]))
-
-    return trans_candidates
+    return x_cap
 
 
 ################## END OF FUNCTIONS FOR LOCALIZATION ########################
