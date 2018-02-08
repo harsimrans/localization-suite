@@ -314,9 +314,9 @@ def calculate_covariance_matrix(voxels, sigma2=0.5, delta=1.0):
 	return C
 
 
-def localize(receivers, grid_centers, top_n=1):
+def localize(receivers, grid_centers, top_n=1, rss_dbm=True):
     
-    x_cap = localize_prob(receivers, grid_centers)
+    x_cap = localize_prob(receivers, grid_centers, rss_dbm)
     top_n = x_cap.argsort()[-1*top_n:][::-1] # top n indexes
 
     trans_candidates = []
@@ -325,11 +325,12 @@ def localize(receivers, grid_centers, top_n=1):
 
     return trans_candidates
 
-def localize_prob(receivers, grid_centers):
+def localize_prob(receivers, grid_centers, rss_dbm=True):
     # separate out the powers
     powers = np.asarray(receivers)[:, [2]]
     receivers = np.asarray(receivers)[:, [0,1]]
-    powers = 10**(powers / 10)
+    if rss_dbm:
+        powers = 10**(powers / 10)
     
     W = compute_weight_matrix(receivers, grid_centers)
     C = calculate_covariance_matrix(grid_centers)
