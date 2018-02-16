@@ -46,14 +46,16 @@ true_x = [x[0] for x in receivers]
 true_y = [x[1] for x in receivers]
 true_rss = [x[2] for x in receivers]
 
-### Convert true RSS to Watts
-true_rss_watt = []
-for val in true_rss:
-	true_rss_watt.append(10**(val/ 10))
-true_rss = true_rss_watt[:]
-#also do in the receiver list
-for i in range(len(receivers)):
-	receivers[i][-1] = 10**(receivers[i][-1]/ 10)
+# ### Convert true RSS to Watts
+# true_rss_watt = []
+# for val in true_rss:
+# 	true_rss_watt.append(10**(val/ 10))
+# true_rss = true_rss_watt[:]
+
+# #also do in the receiver list
+# for i in range(len(receivers)):
+# 	receivers[i][-1] = 10**(receivers[i][-1]/ 10)
+
 
 print(true_x)
 print(true_y)
@@ -71,7 +73,7 @@ grid_centers = calculate_grid_centers(10, 13, -5, -5, 1.0)
 noisy_recv_list = []
 for i in range(len(x_false)):
 	noisy_recv_list.append([x_false[i], y_false[i], rss_false[i]])
-transmitter_localized = localize(noisy_recv_list, grid_centers, rss_dbm=False)[0]
+transmitter_localized = localize(noisy_recv_list, grid_centers, rss_dbm=True)[0]
 
 print("the error with localize: ", edist(transmitter_localized[0], transmitter_localized[1], transmitter_loc[0], transmitter_loc[1]))
 
@@ -301,7 +303,7 @@ noisy_recv_list = []
 for i in range(len(x_true)):
 	noisy_recv_list.append([x_true[i], y_true[i], rss_true[i]])
 
-transmitter_localized = localize(noisy_recv_list, grid_centers, rss_dbm=False)[0]
+transmitter_localized = localize(noisy_recv_list, grid_centers, rss_dbm=True)[0]
 print ("locating transmitter again: ", edist(transmitter_localized[0], transmitter_localized[1], transmitter_loc[0], transmitter_loc[1]))
 
 
@@ -315,11 +317,10 @@ for i in range(len(x_true)):
 			index = j
 
 			err = edist(x_true[i], y_true[i], true_x[j], true_y[j])
-	print("index: ", index)
 	error_list.append(err)
 
 
-print(np.mean(error_list), min(error_list), max(error_list)) # some stats
+print("Metric for adversary's guess: ", np.mean(error_list), min(error_list), max(error_list)) # some stats
 
 # how rss values relate to localization error
 
