@@ -3,7 +3,7 @@ import math
 from localize.localize import *
 
 
-FILE = "data10"
+FILE = "data1"
 
 def deg2rad(deg):
 	return deg * (math.pi/180)
@@ -39,8 +39,20 @@ def read_transmitters(file, id):
 df = pd.read_csv(FILE + ".csv")
 
 df = df[['LAT','LONG', "Meas PWR (dBm)"]]
-sampled = df.sample(1000)
+transmitter_x, transmitter_y = read_transmitters("transmitters.csv", FILE)
+df = df[df.apply(lambda x: getDistanceFromLatLonInm(x['LAT'], x['LONG'], transmitter_x, transmitter_y) > 100.0, axis=1)]
+sampled = df.sample(len(df))
 #print (sampled)
+
+
+# pick the maxima and receivers around it
+max_index = sampled["Meas PWR (dBm)"].idxmax(axis=1)
+mlat = df['LAT'][max_index]
+mlon = df['LONG'][max_index]
+print ("Maxima at: ", mlat, mlon)
+
+sampled = sampled[sampled.apply(lambda x: getDistanceFromLatLonInm(x['LAT'], x['LONG'], mlat, mlon) < 1000.0, axis=1)]
+print ("Samples in sampled: ", len(sampled))
 
 min_lat, max_lat = min(sampled['LAT']), max(sampled['LAT']) # this will become the origin
 print(min_lat, max_lat)
@@ -52,7 +64,7 @@ sampled['X'] = sampled.apply(lambda row: calculate_x(row, min_lat, min_long),axi
 sampled['Y'] = sampled.apply(lambda row: calculate_y(row, min_lat, min_long),axis=1)
 print(sampled)
 
-grid_centers = calculate_grid_centers(max(sampled['X']), max(sampled['Y']), min(sampled['X']), min(sampled['Y']), 50.0)
+grid_centers = calculate_grid_centers(max(sampled['X']), max(sampled['Y']), min(sampled['X']), min(sampled['Y']), 10.0)
 # prepare receiver list
 receiver_list = []
 
