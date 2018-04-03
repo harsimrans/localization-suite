@@ -7,6 +7,8 @@ import math
 import scipy
 import os
 import random
+import theano
+import theano.tensor as T
 
 
 def read_dataset():
@@ -343,4 +345,114 @@ def localize_prob(receivers, grid_centers, rss_dbm=True):
 
 
 ################## END OF FUNCTIONS FOR LOCALIZATION ########################
+
+################## ADVERSARY ATTACK AND PRIVACY EVALUATION ##################
+
+
+def inverse_attack(receivers, x_false, y_false, xmin, xmax, ymin, ymax, pathloss=2.0, rss_min=-60, rss_max=1):
+
+    ### Notations
+    # true_... = the ground truth
+    # ..._false = the falsely reported values
+    # ...true = the adversary's guess of true locations
+    #
+
+    # make gueses for true locations and RSS
+    x_true = [random.uniform(xmin, xmax) for i in range(len(receivers))]
+    y_true = [random.uniform(ymin, ymax) for i in range(len(receivers))]
+    rss_true = [random.uniform(rss_min, rss_max) for i in range(len(receivers))] # Random Initialization 
+
+    # fill RSS up with closest point in the estimate (Intellifgent RSS Initialization)
+    rss_true = []
+    for i in range(len(x_true)):
+        distance = float('inf')
+        index = None
+        for j in range(len(x_false)):
+            if edist(x_false[j], y_false[j], x_true[i], y_true[i]) < distance:
+                index = j
+                distance = edist(x_false[j], y_false[j], x_true[i], y_true[i])
+        rss_true.append(rss_false[index]) 
+
+    # Define elements in graph
+
+    x = T.dmatrix('x') # the x coordinates of the true location to guess
+    y = T.dmatrix('y') # the y coordinates of the true location to guess
+    f = T.dmatrix('f') # the RSS values at the these locations
+
+    vx = T.dscalar('vx') # falsely reported location x coordinate
+    vy = T.dscalar('vy') # falsely reported location y coordinate
+
+    p = T.dscalar('p') # adjusted RSS reported for false location reported
+
+
+    def function(x, y, vx, vy, f):
+        '''
+            Takes Theno tensors as input and calculates the RSS at falsely reported 
+            locations based on true location guesses
+        '''
+        d = (x - vx)**2 + (y - vy)**2 
+        d = d ** (-1 * pathloss)
+        predicted = T.sum((d / T.sum(d)) * f)
+        return predicted
+        
+
+    def loss(x, y, vx, vy, f, p):
+        '''
+            Calculated the loss for single instance of falsely reported location
+        '''
+        return (function(x, y, vx, vy, f) - p)**2
+
+    # set for partial gradients
+    gx = T.grad(loss(x, y, vx, vy, f, p), x)
+    gy = T.grad(loss(x, y, vx, vy, f, p), y)
+    gf = T.grad(loss(x, y, vx, vy, f, p), f)
+
+    # convert in Theano function for calculations
+    f1 = theano.function([x,y,vx,vy,f,p], gx)
+    f2 = theano.function([x,y,vx,vy,f,p], gy)
+    f3 = theano.function([x,y,vx,vy,f,p], gf)
+
+    # factor out the loss function to calculate values for plotting
+    f_loss = theano.function([x,y,vx,vy,f,p], (function(x, y, vx, vy, f) - p)**2)
+
+
+    #loss_function = theano.function([x,y,vx,vy,f,p], loss)
+
+    loss_list = []
+    EPOCH = 1
+    for m in range(EPOCH):
+        delta = 0.01 # incremental update size
+        num_trials = 500 # number of iterations for MLE
+
+
+        # loop through and find the gradient for all the vjs; update guesses and repeat
+        
+        counter = 1
+        for k in range(num_trials):
+            sumf1 = [0.0] * len(x_true)
+            sumf2 = [0.0] * len(x_true)
+            sumf3 = [0.0] * len(x_true)
+            cumm_loss = 0.0
+            for i in range(len(x_false)):
+                #cumm_loss += math.sqrt(f_loss([x_true], [y_true], x_false[i], y_false[i], [rss_true], rss_false[i]))
+                cumm_loss +=f_loss([x_true], [y_true], x_false[i], y_false[i], [rss_true], rss_false[i])
+                sumf1 += f1([x_true], [y_true], x_false[i], y_false[i], [rss_true], rss_false[i])
+                sumf2 += f2([x_true], [y_true], x_false[i], y_false[i], [rss_true], rss_false[i])
+                sumf3 += f3([x_true], [y_true], x_false[i], y_false[i], [rss_true], rss_false[i])
+            
+            #loss_list.append(cumm_loss/len(x_false))   
+            loss_list.append(cumm_loss) 
+            
+
+            #print("loss for interation", k, loss([x_true], [y_true], x_false[i], y_false[i], [rss_true], rss_false[i]))
+            # update the true location and rss guesses
+            for i in range(len(x_true)):
+                x_true[i] -= delta * sumf1[0][i]
+                y_true[i] -= delta * sumf2[0][i]
+                rss_true[i] -= delta * sumf3[0][i]
+
+            #delta = 0.01 / math.sqrt(counter)
+            counter += 1
+    return x_true, y_true, rss_true, loss_list
+
 
