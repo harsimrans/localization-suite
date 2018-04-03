@@ -123,19 +123,6 @@ def random_false_location(receivers, grid=(10, 13, -5, -5), num_sample=None):
         false_receiver.append([lat, lon, power])
     return false_receiver
 
-class Receiver:
-    def __init__(self, x, y, rss=None):
-        self.x = x
-        self.y = y
-        self.rss = rss
-
-    def position(self):
-        return self.x, self.y
-
-    def __str__(self):
-        return "(" + str(self.x) + "," + str(self.y) + ")"
-
-
 
 def select_subset(rev_loc, xmin, xmax, ymin, ymax):
     """
@@ -148,8 +135,6 @@ def select_subset(rev_loc, xmin, xmax, ymin, ymax):
         if xmin <= r[0][0] <= xmax and ymin <= r[0][1] <= ymax:
             new_rl.append(r)
     return new_rl
-    
-
 
 
 ######### HELPER FUNCTIONS ##################
