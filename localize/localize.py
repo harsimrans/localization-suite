@@ -9,6 +9,7 @@ import os
 import random
 import theano
 import theano.tensor as T
+from scipy.optimize import linear_sum_assignment
 
 
 def read_dataset():
@@ -441,3 +442,19 @@ def inverse_attack(receivers, x_false, y_false, xmin, xmax, ymin, ymax, pathloss
     return x_true, y_true, rss_true, loss_list
 
 
+
+def min_cost_matching(x_true, y_true, true_x, true_y):
+    '''
+        matches locations in adversary's location guess 
+        to the true location of the receivers based on
+        minimum cost bipartite matching
+    '''
+    # build a cost matrix
+    C = [[None]*len(x_true) for _ in range(len(x_true))]
+    for i in range(len(x_true)):
+        for j in range(len(x_true)):
+            C[i][j] = edist(x_true[i], y_true[i], true_x[j], true_y[j])
+    C = np.array(C)
+    row_ind, col_ind = linear_sum_assignment(C)
+    #print (C[row_ind, col_ind])
+    return C[row_ind, col_ind].sum() / len(x_true), C[row_ind, col_ind]
